@@ -5,7 +5,6 @@
 /vendor/
 
 # Go module cache
-/pkg/
 /.golangci-lint-cache/
 *.test
 
