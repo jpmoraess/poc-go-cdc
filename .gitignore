@@ -1,0 +1,26 @@
+# Go specific files
+# Binaries and object files
+/bin/
+/obj/
+/vendor/
+
+# Go module cache
+/pkg/
+/.golangci-lint-cache/
+*.test
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*~
+*.sublime-workspace
+*.sublime-project
+
+# Log files
+*.log
+
+### VS Code ###
+.vscode/
+
+docker-compose/volumes/
