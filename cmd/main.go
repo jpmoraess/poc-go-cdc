@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jpmoraess/poc-go-cdc/pkg/kafka"
 )
 
@@ -21,6 +22,12 @@ type MyMessage struct {
 	NumberOne int
 	NumberTwo int
 	Receiver  Receiver
+}
+
+type OrderMessage struct {
+	OrderID    uuid.UUID
+	CustomerID uuid.UUID
+	Total      int
 }
 
 func main() {
@@ -46,7 +53,15 @@ func main() {
 	}
 	defer producer.Close()
 
-	go sendMessage(ctx, producer)
+	// order producer
+	orderProducer, err := kafka.NewKafkaProducer[OrderMessage](brokers, "debezium.order.payment_outbox")
+	if err != nil {
+		log.Fatalf("erro ao inicializar o order producer: %v", err)
+	}
+	defer orderProducer.Close()
+
+	go sendOrderMessage(ctx, orderProducer)
+	//go sendMessage(ctx, producer)
 
 	// consumer
 	consumer, err := kafka.NewKafkaConsumer[MyMessage](brokers, groupID, topic)
@@ -55,14 +70,24 @@ func main() {
 	}
 	defer consumer.Close()
 
-	msgCh := make(chan MyMessage)
+	// order consumer
+	orderConsumer, err := kafka.NewKafkaConsumer[OrderMessage](brokers, groupID, "debezium.order.payment_outbox")
+	if err != nil {
+		log.Fatalf("erro ao iniciar o order consumer: %v", err)
+	}
+	defer orderConsumer.Close()
 
-	go consumer.Run(ctx, msgCh)
-	go consumer.Run(ctx, msgCh)
+	//msgCh := make(chan MyMessage)
+	orderMsgCh := make(chan OrderMessage)
+
+	go orderConsumer.Run(ctx, orderMsgCh)
+
+	//go consumer.Run(ctx, msgCh)
+	//go consumer.Run(ctx, msgCh)
 
 	for {
 		select {
-		case msg, ok := <-msgCh:
+		case msg, ok := <-orderMsgCh:
 			if !ok {
 				log.Println("canal fechado, encerrando consumo")
 				return
@@ -91,6 +116,30 @@ func sendMessage(ctx context.Context, producer *kafka.KafkaProducer[MyMessage]) 
 				Receiver: Receiver{
 					Name: "John",
 				},
+			}
+			err := producer.SendMessage(ctx, message)
+			if err != nil {
+				log.Printf("erro ao enviar mensagem: %v", err)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
+
+func sendOrderMessage(ctx context.Context, producer *kafka.KafkaProducer[OrderMessage]) {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("producer encerrado...")
+			return
+		default:
+			rand.Seed(time.Now().UnixNano())
+			rand1 := rand.Intn(200)
+			rand2 := rand.Intn(350)
+			message := OrderMessage{
+				OrderID:    uuid.New(),
+				CustomerID: uuid.New(),
+				Total:      rand1 + rand2,
 			}
 			err := producer.SendMessage(ctx, message)
 			if err != nil {
