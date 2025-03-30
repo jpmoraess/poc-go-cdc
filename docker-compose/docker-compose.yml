@@ -103,7 +103,6 @@ services:
       - zookeeper
     networks:
       - poc-go-cdc
-
   init-kafka:
     image: confluentinc/cp-kafka:${KAFKA_VERSION:-latest}
     depends_on:
@@ -126,6 +125,49 @@ services:
       "
     networks:
      - poc-go-cdc
+  debezium-kafka-connector:
+    image:  debezium/connect:${DEBEZIUM_VERSION:-2.7.3.Final}
+    user: root
+    ports:
+      - 8083:8083
+    environment:
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: "connect-config"
+      OFFSET_STORAGE_TOPIC: "connect-offsets"
+      STATUS_STORAGE_TOPIC: "connect-status"
+      BOOTSTRAP_SERVERS: kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092
+      LOGGING_LEVEL: "DEBUG"
+    depends_on:
+      - schema-registry
+      - kafka-broker-1
+      - kafka-broker-2
+      - kafka-broker-3
+      - init-kafka
+    networks:
+      - poc-go-cdc
+  mongodb:
+    image: mongo:latest
+    hostname: mongodb
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_DATABASE=orders-database
+    command: ["mongod", "--replSet", "rs0"]
+    volumes:
+      - ./volumes/mongo/data:/data/db
+    networks:
+      - poc-go-cdc
+  init-mongo:
+    image: mongo:latest
+    container_name: init-mongo
+    depends_on:
+      - mongodb
+    entrypoint: ["sh", "-c", "sleep 10 && mongo --host mongodb --eval 'rs.initiate()'"]
+    networks:
+      - poc-go-cdc    
 
 networks:
   poc-go-cdc:
