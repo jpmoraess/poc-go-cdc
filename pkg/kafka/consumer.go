@@ -26,7 +26,7 @@ func NewKafkaConsumer[T any](opts ...func(*KafkaConsumerConfig)) (*KafkaConsumer
 
 	consumerGroup, err := sarama.NewConsumerGroup(config.Brokers, config.ConsumerGroup, saramaConfig)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar consumer: %w", err)
+		return nil, fmt.Errorf("error creating consumer: %w", err)
 	}
 
 	return &KafkaConsumer[T]{
@@ -40,19 +40,19 @@ func (k *KafkaConsumer[T]) Run(ctx context.Context, msgCh chan T) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("consumer encerrado por contexto")
+			log.Println("consumer terminated by context")
 			return
 		default:
 			err := k.consumerGroup.Consume(ctx, []string{k.topic}, handler)
 			if err != nil {
-				log.Printf("erro no consumo: %v", err)
+				log.Printf("error consuming: %v", err)
 			}
 		}
 	}
 }
 
 func (k *KafkaConsumer[T]) Close() error {
-	log.Println("encerrando kafka consumer...")
+	log.Println("closing Kafka consumer...")
 	return k.consumerGroup.Close()
 }
 
@@ -72,7 +72,7 @@ func (h *ConsumerHandler[T]) ConsumeClaim(session sarama.ConsumerGroupSession, c
 	for msg := range claim.Messages() {
 		var message T
 		if err := json.Unmarshal(msg.Value, &message); err != nil {
-			log.Printf("erro ao desserializar mensagem: %v", err)
+			log.Printf("error deserializing message: %v", err)
 			continue
 		}
 		h.msgCh <- message
@@ -98,7 +98,7 @@ func DefaultKafkaConsumerConfig() *KafkaConsumerConfig {
 	}
 }
 
-func WithBrokerss(brokers []string) func(*KafkaConsumerConfig) {
+func WithConsumerBrokers(brokers []string) func(*KafkaConsumerConfig) {
 	return func(c *KafkaConsumerConfig) {
 		c.Brokers = brokers
 	}
@@ -110,7 +110,7 @@ func WithConsumerGroup(group string) func(*KafkaConsumerConfig) {
 	}
 }
 
-func WithTopicc(topic string) func(*KafkaConsumerConfig) {
+func WithConsumerTopic(topic string) func(*KafkaConsumerConfig) {
 	return func(c *KafkaConsumerConfig) {
 		c.Topic = topic
 	}

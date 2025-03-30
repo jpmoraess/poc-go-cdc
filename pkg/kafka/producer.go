@@ -27,7 +27,7 @@ func NewKafkaProducer[T any](opts ...func(*KafkaProducerConfig)) (*KafkaProducer
 
 	client, err := sarama.NewSyncProducer(config.Brokers, saramaConfig)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar kafka producer: %w", err)
+		return nil, fmt.Errorf("error creating Kafka producer: %w", err)
 	}
 
 	return &KafkaProducer[T]{
@@ -39,7 +39,7 @@ func NewKafkaProducer[T any](opts ...func(*KafkaProducerConfig)) (*KafkaProducer
 func (kafka *KafkaProducer[T]) SendMessage(ctx context.Context, message T) error {
 	data, err := json.Marshal(message)
 	if err != nil {
-		return fmt.Errorf("erro ao serializar mensagem: %w", err)
+		return fmt.Errorf("error serializing message: %w", err)
 	}
 
 	msg := &sarama.ProducerMessage{
@@ -49,19 +49,19 @@ func (kafka *KafkaProducer[T]) SendMessage(ctx context.Context, message T) error
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("contexto cancelado antes do envio da mensagem")
+		return fmt.Errorf("context canceled before sending the message")
 	default:
 		partition, offset, err := kafka.client.SendMessage(msg)
 		if err != nil {
-			return fmt.Errorf("erro ao enviar mensagem: %w", err)
+			return fmt.Errorf("error sending message: %w", err)
 		}
-		log.Printf("mensagem: (%s) enviada para (partition: %d, offset: %d)", string(data), partition, offset)
+		log.Printf("message: (%s) sent to (partition: %d, offset: %d)", string(data), partition, offset)
 		return nil
 	}
 }
 
 func (kafka *KafkaProducer[T]) Close() error {
-	log.Println("encerrando o kafka producer")
+	log.Println("closing the Kafka producer")
 	return kafka.client.Close()
 }
 
@@ -83,13 +83,13 @@ func DefaultKafkaProducerConfig() *KafkaProducerConfig {
 	}
 }
 
-func WithBrokers(brokers []string) func(*KafkaProducerConfig) {
+func WithProducerBrokers(brokers []string) func(*KafkaProducerConfig) {
 	return func(c *KafkaProducerConfig) {
 		c.Brokers = brokers
 	}
 }
 
-func WithTopic(topic string) func(*KafkaProducerConfig) {
+func WithProducerTopic(topic string) func(*KafkaProducerConfig) {
 	return func(c *KafkaProducerConfig) {
 		c.Topic = topic
 	}

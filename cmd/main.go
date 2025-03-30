@@ -49,27 +49,27 @@ func main() {
 
 	// producer
 	producer, err := kafka.NewKafkaProducer[MyMessage](
-		kafka.WithBrokers(brokers),
-		kafka.WithTopic(topic),
+		kafka.WithProducerBrokers(brokers),
+		kafka.WithProducerTopic(topic),
 		kafka.WithProducerReturnSuccesses(true),
 		kafka.WithProducerRetryMax(5),
 		kafka.WithProducerRequiredAcks(sarama.WaitForAll),
 	)
 	if err != nil {
-		log.Fatalf("erro ao inicializar o producer: %v", err)
+		log.Fatalf("error initializing the producer: %v", err)
 	}
 	defer producer.Close()
 
 	// order producer
 	orderProducer, err := kafka.NewKafkaProducer[OrderMessage](
-		kafka.WithBrokers(brokers),
-		kafka.WithTopic(topic),
+		kafka.WithProducerBrokers(brokers),
+		kafka.WithProducerTopic(topic),
 		kafka.WithProducerReturnSuccesses(true),
 		kafka.WithProducerRetryMax(5),
 		kafka.WithProducerRequiredAcks(sarama.WaitForAll),
 	)
 	if err != nil {
-		log.Fatalf("erro ao inicializar o order producer: %v", err)
+		log.Fatalf("error initializing the order producer: %v", err)
 	}
 	defer orderProducer.Close()
 
@@ -78,27 +78,27 @@ func main() {
 
 	// consumer
 	consumer, err := kafka.NewKafkaConsumer[MyMessage](
-		kafka.WithBrokerss(brokers),
-		kafka.WithTopicc(topic),
+		kafka.WithConsumerBrokers(brokers),
+		kafka.WithConsumerTopic(topic),
 		kafka.WithConsumerGroup(groupID),
 		kafka.WithConsumerRebalance(sarama.NewBalanceStrategyRoundRobin()),
 		kafka.WithOffsetsInitial(sarama.OffsetNewest),
 	)
 	if err != nil {
-		log.Fatalf("erro ao iniciar o consumer: %v", err)
+		log.Fatalf("error initializing the consumer: %v", err)
 	}
 	defer consumer.Close()
 
 	// order consumer
 	orderConsumer, err := kafka.NewKafkaConsumer[OrderMessage](
-		kafka.WithBrokerss(brokers),
-		kafka.WithTopicc(topic),
+		kafka.WithConsumerBrokers(brokers),
+		kafka.WithConsumerTopic(topic),
 		kafka.WithConsumerGroup(groupID),
 		kafka.WithConsumerRebalance(sarama.NewBalanceStrategyRoundRobin()),
 		kafka.WithOffsetsInitial(sarama.OffsetNewest),
 	)
 	if err != nil {
-		log.Fatalf("erro ao iniciar o order consumer: %v", err)
+		log.Fatalf("error initializing the order consumer: %v", err)
 	}
 	defer orderConsumer.Close()
 
@@ -114,12 +114,12 @@ func main() {
 		select {
 		case msg, ok := <-orderMsgCh:
 			if !ok {
-				log.Println("canal fechado, encerrando consumo")
+				log.Println("channel closed, stopping consumption")
 				return
 			}
-			fmt.Printf("mensagem recebida: %+v\n", msg)
+			fmt.Printf("message received: %+v\n", msg)
 		case <-ctx.Done():
-			log.Println("contexto cancelado, encerrando consumo")
+			log.Println("context canceled, stopping consumption")
 			return
 		}
 	}
@@ -129,7 +129,7 @@ func sendMessage(ctx context.Context, producer *kafka.KafkaProducer[MyMessage]) 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("producer encerrado...")
+			log.Printf("producer terminated...")
 			return
 		default:
 			rand.Seed(time.Now().UnixNano())
@@ -144,7 +144,7 @@ func sendMessage(ctx context.Context, producer *kafka.KafkaProducer[MyMessage]) 
 			}
 			err := producer.SendMessage(ctx, message)
 			if err != nil {
-				log.Printf("erro ao enviar mensagem: %v", err)
+				log.Printf("error while sending message: %v", err)
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -155,7 +155,7 @@ func sendOrderMessage(ctx context.Context, producer *kafka.KafkaProducer[OrderMe
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("producer encerrado...")
+			log.Printf("producer terminated...")
 			return
 		default:
 			rand.Seed(time.Now().UnixNano())
@@ -168,7 +168,7 @@ func sendOrderMessage(ctx context.Context, producer *kafka.KafkaProducer[OrderMe
 			}
 			err := producer.SendMessage(ctx, message)
 			if err != nil {
-				log.Printf("erro ao enviar mensagem: %v", err)
+				log.Printf("error while sending message: %v", err)
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
