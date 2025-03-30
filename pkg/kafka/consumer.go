@@ -14,19 +14,24 @@ type KafkaConsumer[T any] struct {
 	topic         string
 }
 
-func NewKafkaConsumer[T any](brokers []string, groupID string, topic string) (*KafkaConsumer[T], error) {
-	config := sarama.NewConfig()
-	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
-	config.Consumer.Offsets.Initial = sarama.OffsetNewest
+func NewKafkaConsumer[T any](opts ...func(*KafkaConsumerConfig)) (*KafkaConsumer[T], error) {
+	config := DefaultKafkaConsumerConfig()
+	for _, opt := range opts {
+		opt(config)
+	}
 
-	consumerGroup, err := sarama.NewConsumerGroup(brokers, groupID, config)
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Consumer.Group.Rebalance.Strategy = config.ConsumerRebalance
+	saramaConfig.Consumer.Offsets.Initial = config.OffsetsInitial
+
+	consumerGroup, err := sarama.NewConsumerGroup(config.Brokers, config.ConsumerGroup, saramaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar consumer: %w", err)
 	}
 
 	return &KafkaConsumer[T]{
 		consumerGroup: consumerGroup,
-		topic:         topic,
+		topic:         config.Topic,
 	}, nil
 }
 
@@ -74,4 +79,51 @@ func (h *ConsumerHandler[T]) ConsumeClaim(session sarama.ConsumerGroupSession, c
 		session.MarkMessage(msg, "")
 	}
 	return nil
+}
+
+// CONFIGURATION
+
+type KafkaConsumerConfig struct {
+	Brokers           []string
+	Topic             string
+	ConsumerGroup     string
+	ConsumerRebalance sarama.BalanceStrategy
+	OffsetsInitial    int64
+}
+
+func DefaultKafkaConsumerConfig() *KafkaConsumerConfig {
+	return &KafkaConsumerConfig{
+		ConsumerRebalance: sarama.NewBalanceStrategyRoundRobin(),
+		OffsetsInitial:    sarama.OffsetNewest,
+	}
+}
+
+func WithBrokerss(brokers []string) func(*KafkaConsumerConfig) {
+	return func(c *KafkaConsumerConfig) {
+		c.Brokers = brokers
+	}
+}
+
+func WithConsumerGroup(group string) func(*KafkaConsumerConfig) {
+	return func(c *KafkaConsumerConfig) {
+		c.ConsumerGroup = group
+	}
+}
+
+func WithTopicc(topic string) func(*KafkaConsumerConfig) {
+	return func(c *KafkaConsumerConfig) {
+		c.Topic = topic
+	}
+}
+
+func WithConsumerRebalance(rebalance sarama.BalanceStrategy) func(*KafkaConsumerConfig) {
+	return func(c *KafkaConsumerConfig) {
+		c.ConsumerRebalance = rebalance
+	}
+}
+
+func WithOffsetsInitial(offset int64) func(*KafkaConsumerConfig) {
+	return func(c *KafkaConsumerConfig) {
+		c.OffsetsInitial = offset
+	}
 }

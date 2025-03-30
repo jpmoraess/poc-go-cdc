@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/jpmoraess/poc-go-cdc/pkg/kafka"
 )
@@ -47,14 +48,26 @@ func main() {
 	}()
 
 	// producer
-	producer, err := kafka.NewKafkaProducer[MyMessage](brokers, topic)
+	producer, err := kafka.NewKafkaProducer[MyMessage](
+		kafka.WithBrokers(brokers),
+		kafka.WithTopic(topic),
+		kafka.WithProducerReturnSuccesses(true),
+		kafka.WithProducerRetryMax(5),
+		kafka.WithProducerRequiredAcks(sarama.WaitForAll),
+	)
 	if err != nil {
 		log.Fatalf("erro ao inicializar o producer: %v", err)
 	}
 	defer producer.Close()
 
 	// order producer
-	orderProducer, err := kafka.NewKafkaProducer[OrderMessage](brokers, "debezium.order.payment_outbox")
+	orderProducer, err := kafka.NewKafkaProducer[OrderMessage](
+		kafka.WithBrokers(brokers),
+		kafka.WithTopic(topic),
+		kafka.WithProducerReturnSuccesses(true),
+		kafka.WithProducerRetryMax(5),
+		kafka.WithProducerRequiredAcks(sarama.WaitForAll),
+	)
 	if err != nil {
 		log.Fatalf("erro ao inicializar o order producer: %v", err)
 	}
@@ -64,14 +77,26 @@ func main() {
 	//go sendMessage(ctx, producer)
 
 	// consumer
-	consumer, err := kafka.NewKafkaConsumer[MyMessage](brokers, groupID, topic)
+	consumer, err := kafka.NewKafkaConsumer[MyMessage](
+		kafka.WithBrokerss(brokers),
+		kafka.WithTopicc(topic),
+		kafka.WithConsumerGroup(groupID),
+		kafka.WithConsumerRebalance(sarama.NewBalanceStrategyRoundRobin()),
+		kafka.WithOffsetsInitial(sarama.OffsetNewest),
+	)
 	if err != nil {
 		log.Fatalf("erro ao iniciar o consumer: %v", err)
 	}
 	defer consumer.Close()
 
 	// order consumer
-	orderConsumer, err := kafka.NewKafkaConsumer[OrderMessage](brokers, groupID, "debezium.order.payment_outbox")
+	orderConsumer, err := kafka.NewKafkaConsumer[OrderMessage](
+		kafka.WithBrokerss(brokers),
+		kafka.WithTopicc(topic),
+		kafka.WithConsumerGroup(groupID),
+		kafka.WithConsumerRebalance(sarama.NewBalanceStrategyRoundRobin()),
+		kafka.WithOffsetsInitial(sarama.OffsetNewest),
+	)
 	if err != nil {
 		log.Fatalf("erro ao iniciar o order consumer: %v", err)
 	}

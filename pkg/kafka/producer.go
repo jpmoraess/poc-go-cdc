@@ -14,20 +14,25 @@ type KafkaProducer[T any] struct {
 	topic  string
 }
 
-func NewKafkaProducer[T any](brokers []string, topic string) (*KafkaProducer[T], error) {
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.Retry.Max = 5
-	config.Producer.RequiredAcks = sarama.WaitForAll
+func NewKafkaProducer[T any](opts ...func(*KafkaProducerConfig)) (*KafkaProducer[T], error) {
+	config := DefaultKafkaProducerConfig()
+	for _, opt := range opts {
+		opt(config)
+	}
 
-	client, err := sarama.NewSyncProducer(brokers, config)
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Producer.Return.Successes = config.ProducerReturnSuccesses
+	saramaConfig.Producer.Retry.Max = config.ProducerRetryMax
+	saramaConfig.Producer.RequiredAcks = config.ProducerRequiredAcks
+
+	client, err := sarama.NewSyncProducer(config.Brokers, saramaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar kafka producer: %w", err)
 	}
 
 	return &KafkaProducer[T]{
 		client: client,
-		topic:  topic,
+		topic:  config.Topic,
 	}, nil
 }
 
@@ -58,4 +63,52 @@ func (kafka *KafkaProducer[T]) SendMessage(ctx context.Context, message T) error
 func (kafka *KafkaProducer[T]) Close() error {
 	log.Println("encerrando o kafka producer")
 	return kafka.client.Close()
+}
+
+// CONFIGURATION
+
+type KafkaProducerConfig struct {
+	Brokers                 []string
+	Topic                   string
+	ProducerReturnSuccesses bool
+	ProducerRetryMax        int
+	ProducerRequiredAcks    sarama.RequiredAcks
+}
+
+func DefaultKafkaProducerConfig() *KafkaProducerConfig {
+	return &KafkaProducerConfig{
+		ProducerReturnSuccesses: true,
+		ProducerRetryMax:        5,
+		ProducerRequiredAcks:    sarama.WaitForAll,
+	}
+}
+
+func WithBrokers(brokers []string) func(*KafkaProducerConfig) {
+	return func(c *KafkaProducerConfig) {
+		c.Brokers = brokers
+	}
+}
+
+func WithTopic(topic string) func(*KafkaProducerConfig) {
+	return func(c *KafkaProducerConfig) {
+		c.Topic = topic
+	}
+}
+
+func WithProducerReturnSuccesses(returnSuccesses bool) func(*KafkaProducerConfig) {
+	return func(c *KafkaProducerConfig) {
+		c.ProducerReturnSuccesses = returnSuccesses
+	}
+}
+
+func WithProducerRetryMax(retryMax int) func(*KafkaProducerConfig) {
+	return func(c *KafkaProducerConfig) {
+		c.ProducerRetryMax = retryMax
+	}
+}
+
+func WithProducerRequiredAcks(requiredAcks sarama.RequiredAcks) func(*KafkaProducerConfig) {
+	return func(c *KafkaProducerConfig) {
+		c.ProducerRequiredAcks = requiredAcks
+	}
 }
